@@ -897,7 +897,7 @@ class Select(SelectBase) :
     def __iter__( self ) :      
         self.Execute()
         
-        outputfiles = glob.glob( self.dir + "/*" )
+        outputfiles = [ x for x in glob.glob( self.dir + "/*" ) if os.stat( x ).st_size > 0 ]
         if len( outputfiles ) > 0 :
             rows = subprocess.Popen( [ "cat" ] + outputfiles, stdout=subprocess.PIPE )
             self.iterator = InputIterator( rows.stdout, self.rowFormat, self.schema )
@@ -1358,7 +1358,6 @@ def ReadHiveType( value, type, rowFormat ) :
         try :
             out = JsonLoads( value )
         except ValueError :
-            print >> sys.stderr, "ValueError in '", value, "'"
             out = None
     else :
         raise TypeError
