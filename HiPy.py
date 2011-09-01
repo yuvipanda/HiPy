@@ -24,7 +24,7 @@
 
 from __future__ import with_statement           # Not needed for Python 2.6+
 
-import sys, os, inspect, struct, zlib, datetime, shutil, subprocess, glob, tempfile, shutil
+import sys, os, inspect, struct, zlib, datetime, shutil, subprocess, glob, tempfile, shutil, fileinput, fnmatch
 from copy import copy
 import simplejson as json
 import pickle
@@ -412,7 +412,7 @@ class As(Column) :
     # This function is used only in SELECT and TRANSFORM for the definition of a column
     def Define( self, alias = True ) :
         expression = self.original.QualifiedName() if self.original.table else self.original.Expression()
-        if ( not alias ) or ( self.original.table and self.original.name == self.name ) :
+        if ( not alias ) or ( self.original.table and self.original.name == self.name ) or ( isinstance( self.original, MapEntry ) and self.original.key == self.name ) :
             return expression
         return expression + ' AS ' + self.name
     
@@ -897,10 +897,18 @@ class Select(SelectBase) :
     def __iter__( self ) :      
         self.Execute()
         
-        outputfiles = [ x for x in glob.glob( self.dir + "/*" ) if os.stat( x ).st_size > 0 ]
+        for x in os.listdir( self.dir ) :
+            f = self.dir + "/" + x
+            if os.stat( f ).st_size == 0 or fnmatch.fnmatch( x, "*.crc" ) :
+                os.remove( f )
+        
+        outputfiles = glob.glob( self.dir + "/*" )
         if len( outputfiles ) > 0 :
-            rows = subprocess.Popen( [ "cat" ] + outputfiles, stdout=subprocess.PIPE )
-            self.iterator = InputIterator( rows.stdout, self.rowFormat, self.schema )
+            #rows = subprocess.Popen( [ "cat" ] + outputfiles, stdout=subprocess.PIPE )
+            #self.iterator = InputIterator( rows.stdout, self.rowFormat, self.schema )
+            
+            self.iterator = InputIterator( fileinput.input( outputfiles ), self.rowFormat, self.schema )
+            
         else :
             self.iterator = [ ].__iter__()
         
