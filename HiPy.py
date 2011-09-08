@@ -698,6 +698,7 @@ class SelectBase(Table) :
         self.rowFormat = DefaultDelimitedRowFormat
         self.modules = [ ]
         self.code = [ ]
+        self.files = [ ]
         self.limit = None
         self.distinct = False
         
@@ -727,6 +728,9 @@ class SelectBase(Table) :
         
     def AddCode( self, c ) :
         self.code.append( c )
+        
+    def AddFile( self, f ) :
+        self.files.append( f )
         
     def Where( self, where ) :
         if where : self.where.append( where )
@@ -792,6 +796,7 @@ class SelectBase(Table) :
                                                                 SchemaToPython( self.schema ),
                                                                 self.transform[ 'informat' ],
                                                                 self.transform[ 'outformat' ] ) )
+
                 self.Add( "\nUSING 'python " + self.source + "' " )
             else :
                 self.Add( "\nUSING '" + function + "' " )
@@ -868,7 +873,12 @@ class SelectBase(Table) :
         return ( source, script )
         
     def Files( self, recurse ) :
-        files = { self.source : self.script } if self.transform else { }
+        files = dict( ( file, None ) for file in self.files )
+        if self.transform :
+            files[ self.source ] = self.script
+            if hasattr( self.transform['transform'], 'files' ) :
+                for file in self.transform['transform'].files :
+                    files[ os.path.abspath( os.path.join( os.path.dirname( inspect.getsourcefile( self.transform['transform'] ) ), file ) ) ] = None
         for ( module, copy ) in self.modules :
             if copy and hasattr( module, '__file__' ) :
                 files[ module.__file__ ] = None
@@ -1099,13 +1109,7 @@ class QueryBase( SqlBase ) :
         return self.sql
         
     def MakePath( self, filename ) :
-        if filename[0] == '/' :
-            return filename
-        
-        if filename[0] == '~' :
-            return os.path.expanduser( filename )
-            
-        return self.dirvar + '/' + filename
+        return os.path.join( self.dirvar, os.path.expanduser( filename ) )
                 
 class Query(QueryBase) :
     # The directory is used as a workspace for execution of the query 
